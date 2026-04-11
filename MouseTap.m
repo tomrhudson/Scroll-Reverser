@@ -6,6 +6,30 @@
 #import "TapLogger.h"
 #import "AppDelegate.h"
 #import <mach/mach_time.h>
+#import <dlfcn.h>
+
+// Runtime-resolved private SPI functions
+typedef IOHIDEventRef (*CGEventCopyIOHIDEventFunc)(CGEventRef);
+typedef IOHIDFloat (*IOHIDEventGetFloatValueFunc)(IOHIDEventRef, IOHIDEventField);
+typedef void (*IOHIDEventSetFloatValueFunc)(IOHIDEventRef, IOHIDEventField, IOHIDFloat);
+
+static CGEventCopyIOHIDEventFunc _CGEventCopyIOHIDEvent;
+static IOHIDEventGetFloatValueFunc _IOHIDEventGetFloatValue;
+static IOHIDEventSetFloatValueFunc _IOHIDEventSetFloatValue;
+static BOOL _spiAvailable;
+
+static void _resolveSPI(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        _CGEventCopyIOHIDEvent = dlsym(RTLD_DEFAULT, "CGEventCopyIOHIDEvent");
+        _IOHIDEventGetFloatValue = dlsym(RTLD_DEFAULT, "IOHIDEventGetFloatValue");
+        _IOHIDEventSetFloatValue = dlsym(RTLD_DEFAULT, "IOHIDEventSetFloatValue");
+        _spiAvailable = (_CGEventCopyIOHIDEvent && _IOHIDEventGetFloatValue && _IOHIDEventSetFloatValue);
+        if (!_spiAvailable) {
+            NSLog(@"Scroll Reverser: IOHIDEvent SPI not available — smooth scroll reversal may be degraded");
+        }
+    });
+}
 
 static BOOL _preventReverseOtherApp;
 
@@ -16,12 +40,12 @@ static NSString *const kKeyActive=@"active";
 static ScrollPhase _momentumPhaseForEvent(CGEventRef event)
 {
     switch ([[NSEvent eventWithCGEvent:event] momentumPhase]) {
-        case NSTouchPhaseBegan:
+        case NSEventPhaseBegan:
             return ScrollPhaseStart;
-        case NSTouchPhaseStationary:
+        case NSEventPhaseChanged:
             return ScrollPhaseMomentum;
-        case NSTouchPhaseEnded:
-        case NSTouchPhaseCancelled:
+        case NSEventPhaseEnded:
+        case NSEventPhaseCancelled:
             return ScrollPhaseEnd;
         default:
             return ScrollPhaseNormal;
@@ -61,7 +85,6 @@ static CGEventRef _callback(CGEventTapProxy proxy,
         MouseTap *const tap=(__bridge MouseTap *)userInfo;
         const uint64_t time=_nanoseconds();
         NSEvent *const event=[NSEvent eventWithCGEvent:eventRef];
-        [(AppDelegate *)[NSApp delegate] refreshPermissions];
 
         if (type==(CGEventType)NSEventTypeGesture)
         {
@@ -78,7 +101,7 @@ static CGEventRef _callback(CGEventTapProxy proxy,
         }
         else if (type==(CGEventType)NSEventTypeScrollWheel)
         {
-            IOHIDEventRef const ioHidEventRef=CGEventCopyIOHIDEvent(eventRef);
+            IOHIDEventRef const ioHidEventRef=_spiAvailable ? _CGEventCopyIOHIDEvent(eventRef) : NULL;
 
             // is inverted from device? (1=natural scrolling, 0=classic scrolling)
             const BOOL invertedFromDevice=!![event isDirectionInvertedFromDevice];
@@ -98,8 +121,8 @@ static CGEventRef _callback(CGEventTapProxy proxy,
             IOHIDFloat iohid_axis1=0;
             IOHIDFloat iohid_axis2=0;
             if (ioHidEventRef) {
-                iohid_axis1=IOHIDEventGetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollY);
-                iohid_axis2=IOHIDEventGetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollX);
+                iohid_axis1=_IOHIDEventGetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollY);
+                iohid_axis2=_IOHIDEventGetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollX);
             }
             [tap->logger logSignedInteger:axis1 forKey:@"y"];
             [tap->logger logSignedInteger:axis2 forKey:@"x"];
@@ -217,7 +240,7 @@ static CGEventRef _callback(CGEventTapProxy proxy,
                 CGEventSetDoubleValueField(eventRef, kCGScrollWheelEventFixedPtDeltaAxis1, fixedpt_axis1*vmul);
                 CGEventSetIntegerValueField(eventRef, kCGScrollWheelEventPointDeltaAxis1, point_axis1*vmul);
                 if (ioHidEventRef) {
-                    IOHIDEventSetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollY, iohid_axis1*vmul);
+                    _IOHIDEventSetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollY, iohid_axis1*vmul);
                 }
             }
             if (hmul!=1) { // horizontal
@@ -225,7 +248,7 @@ static CGEventRef _callback(CGEventTapProxy proxy,
                 CGEventSetDoubleValueField(eventRef, kCGScrollWheelEventFixedPtDeltaAxis2, fixedpt_axis2*hmul);
                 CGEventSetIntegerValueField(eventRef, kCGScrollWheelEventPointDeltaAxis2, point_axis2*hmul);
                 if (ioHidEventRef) {
-                    IOHIDEventSetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollX, iohid_axis2*vmul);
+                    _IOHIDEventSetFloatValue(ioHidEventRef, kIOHIDEventFieldScrollX, iohid_axis2*hmul);
                 }
             }
 
@@ -275,6 +298,9 @@ static CGEventRef _callback(CGEventTapProxy proxy,
         return;
 
     [self willChangeValueForKey:kKeyActive];
+
+    // resolve private SPI functions at runtime
+    _resolveSPI();
 
     // initialise
     _preventReverseOtherApp=[[NSUserDefaults standardUserDefaults] boolForKey:@"ReverseOnlyRawInput"];

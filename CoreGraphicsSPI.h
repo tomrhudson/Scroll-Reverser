@@ -4,6 +4,6 @@
 #ifndef CoreGraphicsSPI_h
 #define CoreGraphicsSPI_h
 
-IOHIDEventRef CGEventCopyIOHIDEvent(CGEventRef);
+// CGEventCopyIOHIDEvent is resolved at runtime via dlsym in MouseTap.m
 
 #endif /* CoreGraphicsSPI_h */

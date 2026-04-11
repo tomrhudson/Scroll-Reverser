@@ -302,7 +302,7 @@ static void *_contextPermissions=&_contextPermissions;
 
 - (IBAction)showDebug:(id)sender
 {
-    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp activate];
     if(!self.debugWindowController) {
         self.debugWindowController=[[DebugWindowController alloc] initWithWindowNibName:@"DebugWindow"];
         self.debugWindowController.logger=[self startLogging];
@@ -312,7 +312,7 @@ static void *_contextPermissions=&_contextPermissions;
 
 - (void)showPrefsWithDefaultPane:(BOOL)showDefault
 {
-    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp activate];
     if(!self.prefsWindowController) {
         self.prefsWindowController=[[PrefsWindowController alloc] initWithWindowNibName:@"PrefsWindow"];
     }
@@ -330,14 +330,14 @@ static void *_contextPermissions=&_contextPermissions;
 - (IBAction)showAbout:(id)sender
 {
     [self.prefsWindowController close];
-    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp activate];
     NSDictionary *dict=@{@"ApplicationName": @"Scroll Reverser"};
     [NSApp orderFrontStandardAboutPanelWithOptions:dict];
 }
 
 - (IBAction)showTestWindow:(id)sender
 {
-    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp activate];
     if(!self.testWindowController) {
         self.testWindowController=[[TestWindowController alloc] initWithWindowNibName:@"TestWindow"];
     }

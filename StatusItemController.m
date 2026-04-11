@@ -19,26 +19,16 @@
 + (NSImage *)statusImageWithColor:(NSColor *)color
 {
     NSImage *const templateImage=[NSImage imageNamed:@"ScrollReverserStatusIcon"];
-    
-    // create blank image to draw into
-    NSImage *const statusImage=[[NSImage alloc] init];
-    [statusImage setSize:[self statusImageSize]];
-    [statusImage lockFocus];
-    
-    // draw base black image
-    const NSRect dstRect=NSMakeRect(0, 0, [self statusImageSize].width, [self statusImageSize].height);
-    [templateImage drawInRect:dstRect
-                     fromRect:NSZeroRect
-                    operation:NSCompositingOperationSourceOver
-                     fraction:1.0];
-    
-    // fill with color
-    [color set];
-    NSRectFillUsingOperation(dstRect, NSCompositingOperationSourceIn);
-    
-    // finished drawing
-    [statusImage unlockFocus];
-    return statusImage;
+
+    return [NSImage imageWithSize:[self statusImageSize] flipped:NO drawingHandler:^BOOL(NSRect dstRect) {
+        [templateImage drawInRect:dstRect
+                         fromRect:NSZeroRect
+                        operation:NSCompositingOperationSourceOver
+                         fraction:1.0];
+        [color set];
+        NSRectFillUsingOperation(dstRect, NSCompositingOperationSourceIn);
+        return YES;
+    }];
 }
 
 - (void)updateItems

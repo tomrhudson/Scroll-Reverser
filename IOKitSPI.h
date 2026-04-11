@@ -22,7 +22,6 @@ typedef uint32_t IOHIDEventType;
 typedef uint32_t IOHIDEventField;
 typedef uint64_t IOHIDEventSenderID;
 
-
 enum {
     kIOHIDEventScrollMomentumInterrupted = (1 << 4),
 };
@@ -40,7 +39,6 @@ typedef float IOHIDFloat;
 static const IOHIDEventField kIOHIDEventFieldScrollX = (kIOHIDEventFieldScrollBase | 0);
 static const IOHIDEventField kIOHIDEventFieldScrollY = (kIOHIDEventFieldScrollBase | 1);
 
-IOHIDFloat IOHIDEventGetFloatValue(IOHIDEventRef, IOHIDEventField);
-void IOHIDEventSetFloatValue(IOHIDEventRef, IOHIDEventField, IOHIDFloat);
+// IOHIDEventGetFloatValue and IOHIDEventSetFloatValue are resolved at runtime via dlsym in MouseTap.m
 
 #endif /* IOKitSPI_h */

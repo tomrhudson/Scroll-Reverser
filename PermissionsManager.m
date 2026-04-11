@@ -46,7 +46,6 @@ static NSString *const PrefsHasRequestedAccessibilityPermission=@"HasRequestedAc
 
 - (BOOL)checkAccessibilityWithPrompt:(BOOL)prompt
 {
-    // this is a 10.9 API but is only needed on 10.14.
     // with no prompt, this check is very fast. otherwise it blocks.
     NSDictionary *const options=@{(__bridge NSString *)kAXTrustedCheckOptionPrompt: @(prompt)};
     return AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
@@ -54,22 +53,15 @@ static NSString *const PrefsHasRequestedAccessibilityPermission=@"HasRequestedAc
 
 - (BOOL)checkInputMonitoringWithPrompt:(BOOL)prompt
 {
-    if (@available(macOS 10.15, *)) {
-        static const IOHIDRequestType accessType=kIOHIDRequestTypeListenEvent;
-        if (prompt) {
-            // this will block
-            dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-                IOHIDRequestAccess(accessType);
-            });
-            return NO;
-        }
-        else {
-            // this check is very fast
-            return kIOHIDAccessTypeGranted==IOHIDCheckAccess(accessType);
-        }
+    static const IOHIDRequestType accessType=kIOHIDRequestTypeListenEvent;
+    if (prompt) {
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            IOHIDRequestAccess(accessType);
+        });
+        return NO;
     }
     else {
-        return YES;
+        return kIOHIDAccessTypeGranted==IOHIDCheckAccess(accessType);
     }
 }
 
@@ -156,26 +148,14 @@ static NSString *const PrefsHasRequestedAccessibilityPermission=@"HasRequestedAc
     [[NSWorkspace sharedWorkspace] openURL:[[self class] securitySettingsUrlForKey:@"Privacy_ListenEvent"]];
 }
 
-// Accessibility permission is needed on Mojave and above
 - (BOOL)isAccessibilityRequired
 {
-    if (@available(macOS 10.14, *)) {
-        return YES;
-    }
-    else {
-        return NO;
-    }
+    return YES;
 }
 
- // Input Monitoring permission is needed on Catalina and above
 - (BOOL)isInputMonitoringRequired
 {
-    if (@available(macOS 10.15, *)) {
-        return YES;
-    }
-    else {
-        return NO;
-    }
+    return YES;
 }
 
 - (BOOL)isAccessibilityRequested

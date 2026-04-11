@@ -1,9 +1,28 @@
-# xcode stuff
+# Xcode
 xcuserdata/
+build/
+DerivedData/
+*.xcworkspace/xcuserdata/
 
-# build script logfiles
+# Build script logfiles
 *.log
 
-# mac stuff
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
+# Secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.cer
+credentials.*
+
+# Editor and IDE
+.vscode/
+.idea/
+*.swp
+*~
