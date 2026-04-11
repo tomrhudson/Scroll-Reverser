@@ -20,6 +20,9 @@ jobs:
       - name: Clone BuildScripts
         run: git clone https://github.com/pilotmoon/BuildScripts.git BuildScripts
 
+      - name: Prepare build environment
+        run: mkdir -p log
+
       - name: Import Developer ID certificate
         env:
           P12_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
