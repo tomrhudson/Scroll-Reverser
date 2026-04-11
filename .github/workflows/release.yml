@@ -1,0 +1,207 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clone BuildScripts
+        run: git clone https://github.com/pilotmoon/BuildScripts.git BuildScripts
+
+      - name: Import Developer ID certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          echo "$P12_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -k "$KEYCHAIN_PATH" \
+            -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productsign
+          rm $RUNNER_TEMP/certificate.p12
+
+          # Allow codesign to access keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Add to search list
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build and archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild archive \
+            -project ScrollReverser.xcodeproj \
+            -scheme "Scroll Reverser" \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/ScrollReverser.xcarchive \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime"
+
+      - name: Export archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Write export options with the correct team ID
+          cat > $RUNNER_TEMP/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>destination</key>
+            <string>export</string>
+            <key>method</key>
+            <string>developer-id</string>
+            <key>signingCertificate</key>
+            <string>Developer ID Application</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/ScrollReverser.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export
+
+      - name: Create zip
+        run: |
+          cd $RUNNER_TEMP/export
+          zip -r -y $RUNNER_TEMP/ScrollReverser-${{ steps.version.outputs.version }}.zip "Scroll Reverser.app"
+
+      - name: Notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit $RUNNER_TEMP/ScrollReverser-${{ steps.version.outputs.version }}.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 600
+
+          # Staple the app inside the export directory
+          xcrun stapler staple "$RUNNER_TEMP/export/Scroll Reverser.app"
+
+          # Re-zip with stapled app
+          cd $RUNNER_TEMP/export
+          zip -r -y $RUNNER_TEMP/ScrollReverser-${{ steps.version.outputs.version }}.zip "Scroll Reverser.app"
+
+      - name: Sign with Sparkle EdDSA key
+        id: sparkle_sign
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          ZIP_PATH=$RUNNER_TEMP/ScrollReverser-${{ steps.version.outputs.version }}.zip
+          FILE_SIZE=$(stat -f%z "$ZIP_PATH")
+
+          # Generate EdDSA signature using Swift/CryptoKit
+          SIGNATURE=$(swift - "$SPARKLE_PRIVATE_KEY" "$ZIP_PATH" << 'SWIFT_EOF'
+          import Foundation
+          import CryptoKit
+
+          let args = CommandLine.arguments
+          let privKeyBase64 = args[1]
+          let filePath = args[2]
+
+          let privKeyData = Data(base64Encoded: privKeyBase64)!
+          let privateKey = try! Curve25519.Signing.PrivateKey(rawRepresentation: privKeyData)
+
+          let fileData = try! Data(contentsOf: URL(fileURLWithPath: filePath))
+          let signature = try! privateKey.signature(for: fileData)
+          let sigBase64 = signature.base64EncodedString()
+
+          print(sigBase64, terminator: "")
+          SWIFT_EOF
+          )
+
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
+          echo "file_size=$FILE_SIZE" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ steps.version.outputs.tag }} \
+            $RUNNER_TEMP/ScrollReverser-${{ steps.version.outputs.version }}.zip \
+            --title "Scroll Reverser ${{ steps.version.outputs.version }}" \
+            --generate-notes
+
+      - name: Update appcast.xml
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
+          FILE_SIZE="${{ steps.sparkle_sign.outputs.file_size }}"
+          DOWNLOAD_URL="https://github.com/tomrhudson/Scroll-Reverser/releases/download/${TAG}/ScrollReverser-${VERSION}.zip"
+          PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
+
+          # Build the new item XML
+          NEW_ITEM="    <item>
+              <title>Version ${VERSION}</title>
+              <pubDate>${PUB_DATE}</pubDate>
+              <sparkle:version>${VERSION}</sparkle:version>
+              <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+              <sparkle:minimumSystemVersion>13.5</sparkle:minimumSystemVersion>
+              <enclosure
+                url=\"${DOWNLOAD_URL}\"
+                length=\"${FILE_SIZE}\"
+                type=\"application/octet-stream\"
+                sparkle:edSignature=\"${SIGNATURE}\"
+              />
+            </item>"
+
+          # Insert before closing </channel> tag
+          sed -i '' "s|  </channel>|${NEW_ITEM}\n  </channel>|" appcast.xml
+
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "Update appcast.xml for ${TAG}"
+          git push origin HEAD:main
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true

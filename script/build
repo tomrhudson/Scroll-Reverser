@@ -10,15 +10,16 @@ $BuildScripts/process/remove_langs $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FO
 
 # sparkle
 if [[ "${CONFIGURATION:-}" == "Debug" ]]; then
-  # Dev builds: just re-sign Sparkle with ad-hoc to match the app's signing identity
+  # Dev builds: just re-sign Sparkle with ad-hoc identity to match the app
   sparkle_path=$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH/Sparkle.framework
   if [[ -d $sparkle_path ]]; then
     print "Re-signing Sparkle with ad-hoc identity for dev build..."
     codesign --force --deep --sign "-" $sparkle_path
   fi
 else
-  # Production/Beta: full Sparkle processing with Developer ID
-  signing_identity="Developer ID Application"
+  # Release builds: full Sparkle processing with Developer ID
+  # Use CI_SIGNING_IDENTITY env var if set, otherwise default to Developer ID Application
+  signing_identity="${CI_SIGNING_IDENTITY:-Developer ID Application}"
   echo $allowed_languages
   $BuildScripts/process/process_sparkle2_nosb $BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH $allowed_languages $signing_identity
 fi
