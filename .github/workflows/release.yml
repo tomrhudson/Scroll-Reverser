@@ -21,7 +21,24 @@ jobs:
         run: git clone https://github.com/pilotmoon/BuildScripts.git BuildScripts
 
       - name: Prepare build environment
-        run: mkdir -p log
+        run: |
+          mkdir -p log
+
+          # Generate Version.xcconfig manually (bypasses scheme pre-actions)
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          BUILD_NUM=$(git rev-list --count HEAD)
+
+          cat > Version.xcconfig << EOF
+          BUILDSCRIPTS_VERSION_NUM = ${BUILD_NUM}
+          BUILDSCRIPTS_VERSION_STRING = ${VERSION}
+          BUILDSCRIPTS_ORIGINAL_VERSION_STRING = ${VERSION}
+          BUILDSCRIPTS_RELEASE_CHANNEL = Production
+          BUILDSCRIPTS_RELEASE_EDITION = Standalone
+          EOF
+
+          echo "Generated Version.xcconfig:"
+          cat Version.xcconfig
 
       - name: Import Developer ID certificate
         env:
@@ -31,12 +48,10 @@ jobs:
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
 
-          # Create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Import certificate
           echo "$P12_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
           security import $RUNNER_TEMP/certificate.p12 \
             -k "$KEYCHAIN_PATH" \
@@ -45,10 +60,7 @@ jobs:
             -T /usr/bin/productsign
           rm $RUNNER_TEMP/certificate.p12
 
-          # Allow codesign to access keychain
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          # Add to search list
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
 
       - name: Extract version from tag
@@ -59,49 +71,38 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build and archive
+      - name: Build
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcodebuild archive \
+          # Build without scheme pre/post actions by using xcodebuild build directly
+          xcodebuild build \
             -project ScrollReverser.xcodeproj \
-            -scheme "Scroll Reverser" \
+            -target "Scroll Reverser" \
             -configuration Release \
-            -archivePath $RUNNER_TEMP/ScrollReverser.xcarchive \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             ENABLE_HARDENED_RUNTIME=YES \
-            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime"
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
+            DSTROOT=$RUNNER_TEMP/dst \
+            INSTALL_PATH=/Applications \
+            SKIP_INSTALL=NO
 
-      - name: Export archive
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Prepare app for distribution
         run: |
-          # Write export options with the correct team ID
-          cat > $RUNNER_TEMP/ExportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>destination</key>
-            <string>export</string>
-            <key>method</key>
-            <string>developer-id</string>
-            <key>signingCertificate</key>
-            <string>Developer ID Application</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>teamID</key>
-            <string>${APPLE_TEAM_ID}</string>
-          </dict>
-          </plist>
-          EOF
+          # Find the built app
+          APP_PATH=$(find $RUNNER_TEMP/dst -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            # Fallback: check the build products directory
+            BUILD_DIR=$(xcodebuild -project ScrollReverser.xcodeproj -target "Scroll Reverser" -configuration Release -showBuildSettings 2>/dev/null | grep " BUILT_PRODUCTS_DIR" | awk '{print $3}')
+            APP_PATH="$BUILD_DIR/Scroll Reverser.app"
+          fi
+          echo "App path: $APP_PATH"
 
-          xcodebuild -exportArchive \
-            -archivePath $RUNNER_TEMP/ScrollReverser.xcarchive \
-            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
-            -exportPath $RUNNER_TEMP/export
+          # Copy to a clean location
+          mkdir -p $RUNNER_TEMP/export
+          cp -R "$APP_PATH" "$RUNNER_TEMP/export/Scroll Reverser.app"
 
       - name: Create zip
         run: |
@@ -120,7 +121,7 @@ jobs:
             --team-id "$APPLE_TEAM_ID" \
             --wait --timeout 600
 
-          # Staple the app inside the export directory
+          # Staple the app
           xcrun stapler staple "$RUNNER_TEMP/export/Scroll Reverser.app"
 
           # Re-zip with stapled app
@@ -135,7 +136,6 @@ jobs:
           ZIP_PATH=$RUNNER_TEMP/ScrollReverser-${{ steps.version.outputs.version }}.zip
           FILE_SIZE=$(stat -f%z "$ZIP_PATH")
 
-          # Generate EdDSA signature using Swift/CryptoKit
           SIGNATURE=$(swift - "$SPARKLE_PRIVATE_KEY" "$ZIP_PATH" << 'SWIFT_EOF'
           import Foundation
           import CryptoKit
@@ -178,25 +178,11 @@ jobs:
           DOWNLOAD_URL="https://github.com/tomrhudson/Scroll-Reverser/releases/download/${TAG}/ScrollReverser-${VERSION}.zip"
           PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
 
-          # Build the new item XML
-          NEW_ITEM="    <item>
-              <title>Version ${VERSION}</title>
-              <pubDate>${PUB_DATE}</pubDate>
-              <sparkle:version>${VERSION}</sparkle:version>
-              <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-              <sparkle:minimumSystemVersion>13.5</sparkle:minimumSystemVersion>
-              <enclosure
-                url=\"${DOWNLOAD_URL}\"
-                length=\"${FILE_SIZE}\"
-                type=\"application/octet-stream\"
-                sparkle:edSignature=\"${SIGNATURE}\"
-              />
-            </item>"
+          NEW_ITEM="    <item>\n      <title>Version ${VERSION}<\/title>\n      <pubDate>${PUB_DATE}<\/pubDate>\n      <sparkle:version>${VERSION}<\/sparkle:version>\n      <sparkle:shortVersionString>${VERSION}<\/sparkle:shortVersionString>\n      <sparkle:minimumSystemVersion>13.5<\/sparkle:minimumSystemVersion>\n      <enclosure\n        url=\"${DOWNLOAD_URL}\"\n        length=\"${FILE_SIZE}\"\n        type=\"application\/octet-stream\"\n        sparkle:edSignature=\"${SIGNATURE}\"\n      \/>\n    <\/item>"
 
           # Insert before closing </channel> tag
           sed -i '' "s|  </channel>|${NEW_ITEM}\n  </channel>|" appcast.xml
 
-          # Commit and push
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add appcast.xml
