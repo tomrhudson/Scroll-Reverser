@@ -42,7 +42,7 @@
 	<key>NSAppleScriptEnabled</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>© Pilotmoon Software</string>
+	<string>© Tom Hudson. Originally by Pilotmoon Software.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
@@ -62,6 +62,6 @@
 	<key>SUBundleName</key>
 	<string>Scroll Reverser</string>
 	<key>SUPublicEDKey</key>
-	<string>heX4o1mDXEKmelow1XbATuXM5amRCWGhQMFR6cnHy/k=</string>
+	<string>Nb5Ys/mHqgp8+Vq5sEWpdbpNqo+AEV+4S51FO1W4iOk=</string>
 </dict>
 </plist>

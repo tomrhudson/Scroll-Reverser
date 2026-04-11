@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Scroll Reverser</title>
+    <link>https://github.com/tomrhudson/Scroll-Reverser</link>
+    <description>Scroll Reverser update feed</description>
+    <language>en</language>
+    <!--
+      To publish an update:
+      1. Build the Release configuration and archive
+      2. Sign the .zip with: echo -n "PRIVATE_KEY_BASE64" | base64 -d | swift sign_update path/to/ScrollReverser.zip
+         Or use the sign_update.swift script in this repo
+      3. Add a new <item> below with the version, download URL, and EdDSA signature
+      4. Commit and push appcast.xml
+    -->
+  </channel>
+</rss>

@@ -62,7 +62,7 @@ static void *_contextPermissions=&_contextPermissions;
     if (!urlString) {
         if([self appIsProductionBuild]||[self appIsBetaBuild])
         {
-            urlString=@"https://softwareupdate.pilotmoon.com/update/scrollreverser/";
+            urlString=@"https://raw.githubusercontent.com/tomrhudson/Scroll-Reverser/main/";
             if ([[NSUserDefaults standardUserDefaults] boolForKey:PrefsBetaUpdates]) {
                 urlString=[urlString stringByAppendingString:@"appcast-beta.xml"];
             }
@@ -440,19 +440,19 @@ static void *_contextPermissions=&_contextPermissions;
 }
 
 - (NSString *)appCredit {
-    return @"by Nick Moore";
+    return @"by Tom Hudson\nOriginally by Nick Moore";
 }
 
 - (NSURL *)appLink {
-    return [NSURL URLWithString:@"https://pilotmoon.com/link/scrollreverser"];
+    return [NSURL URLWithString:@"https://github.com/pilotmoon/Scroll-Reverser"];
 }
 
 - (NSString *)appDisplayLink {
-    return @"pilotmoon.com/scrollreverser";
+    return @"github.com/pilotmoon/Scroll-Reverser";
 }
 
 - (NSURL *)appPermissionsHelpLink {
-    return [NSURL URLWithString:@"https://pilotmoon.com/link/scrollreverser/help/permissions"];
+    return [NSURL URLWithString:@"https://github.com/pilotmoon/Scroll-Reverser"];
 }
 
 #pragma mark Other UI Strings

@@ -35,6 +35,30 @@ Automated testing is impractical — the app requires system-level Accessibility
 3. Build (Cmd+B)
 4. The post-build scripts in `script/` handle Sparkle framework processing and language filtering
 
+## How to Publish an Update
+
+1. Archive the Release build in Xcode (Product > Archive)
+2. Export the archive as a `.app`, then zip it:
+   ```bash
+   cd /path/to/export
+   zip -r "ScrollReverser-vX.Y.Z.zip" "Scroll Reverser.app"
+   ```
+3. Sign the zip with the EdDSA private key:
+   ```bash
+   # Private key is stored securely (not in repo). See /tmp/sparkle_ed25519_private_key.base64
+   # Use Sparkle's sign_update or a CryptoKit-based signing script
+   ```
+4. Create a GitHub Release at `tomrhudson/Scroll-Reverser` with the zip attached
+5. Update `appcast.xml` in the repo with a new `<item>` entry containing:
+   - Version number (`sparkle:version` and `sparkle:shortVersionString`)
+   - Download URL (GitHub Release asset URL)
+   - EdDSA signature (`sparkle:edSignature`)
+   - File length
+6. Commit and push `appcast.xml`
+7. Sparkle will pick up the update on the next check cycle
+
+**EdDSA signing key**: The private key (`sparkle_ed25519_private_key.base64`) must be stored securely outside the repo. The public key is in `Info.plist` as `SUPublicEDKey`.
+
 ## How to Roll Back
 
 - `git revert <commit>` for individual changes
