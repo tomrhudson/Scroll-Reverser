@@ -4,8 +4,12 @@ build/
 DerivedData/
 *.xcworkspace/xcuserdata/
 
-# Build script logfiles
+# BuildScripts submodule (cloned manually, not committed)
+BuildScripts/
+
+# Build script logfiles and output
 *.log
+log/
 
 # macOS
 .DS_Store
