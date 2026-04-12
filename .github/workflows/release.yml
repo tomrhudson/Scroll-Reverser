@@ -75,7 +75,6 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Build without scheme pre/post actions by using xcodebuild build directly
           xcodebuild build \
             -project ScrollReverser.xcodeproj \
             -target "Scroll Reverser" \
@@ -85,24 +84,11 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             ENABLE_HARDENED_RUNTIME=YES \
             OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
-            DSTROOT=$RUNNER_TEMP/dst \
-            INSTALL_PATH=/Applications \
-            SKIP_INSTALL=NO
+            SYMROOT=$RUNNER_TEMP/build
 
-      - name: Prepare app for distribution
-        run: |
-          # Find the built app
-          APP_PATH=$(find $RUNNER_TEMP/dst -name "*.app" -type d | head -1)
-          if [ -z "$APP_PATH" ]; then
-            # Fallback: check the build products directory
-            BUILD_DIR=$(xcodebuild -project ScrollReverser.xcodeproj -target "Scroll Reverser" -configuration Release -showBuildSettings 2>/dev/null | grep " BUILT_PRODUCTS_DIR" | awk '{print $3}')
-            APP_PATH="$BUILD_DIR/Scroll Reverser.app"
-          fi
-          echo "App path: $APP_PATH"
-
-          # Copy to a clean location
+          # Copy built app to export location
           mkdir -p $RUNNER_TEMP/export
-          cp -R "$APP_PATH" "$RUNNER_TEMP/export/Scroll Reverser.app"
+          cp -R "$RUNNER_TEMP/build/Release/Scroll Reverser.app" "$RUNNER_TEMP/export/Scroll Reverser.app"
 
       - name: Create zip
         run: |
