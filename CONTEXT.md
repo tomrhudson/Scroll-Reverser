@@ -25,15 +25,16 @@ Rather than contribute back upstream (unclear maintenance status), this fork app
 
 ## Dependencies and Integrations
 
-- **Sparkle.framework** — Embedded auto-update framework. Feed URLs point to `softwareupdate.pilotmoon.com`. If this fork is ever distributed independently, the update feed would need to be changed or disabled.
-- **BuildScripts** — Git submodule from `github.com/pilotmoon/BuildScripts`. Handles version injection and post-build processing. Must be initialized before building.
+- **Sparkle.framework** — Embedded auto-update framework. Feed points to `raw.githubusercontent.com/tomrhudson/Scroll-Reverser/main/appcast.xml`. EdDSA signing key was regenerated for this fork (public key in Info.plist, private key in GitHub secrets and 1Password).
+- **BuildScripts** — Cloned manually from `github.com/pilotmoon/BuildScripts` (gitignored, not a submodule). Handles version injection and post-build processing. Automatically cloned in CI workflow.
 - **macOS Accessibility + Input Monitoring** — The app requires both system permissions to function. Without them, the event tap cannot be created.
+- **GitHub Actions** — Release workflow (`.github/workflows/release.yml`) handles build, signing, notarization, and distribution. Triggered by `v*` tags.
+- **Apple Developer ID** — Certificate for Thomas Hudson (Team ID: JZPZ8PQR46). Required for release signing and notarization. Stored as GitHub secrets.
 
 ## Future State
 
 - Monitor each macOS release for private SPI breakage
 - If Apple provides a public API for per-device scroll direction (unlikely but possible), migrate away from event tap approach
-- Consider removing or replacing the Sparkle update mechanism if this fork is never distributed via the original update channel
 
 ## Owner
 

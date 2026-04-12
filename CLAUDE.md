@@ -36,7 +36,7 @@ Claude's role in this repo: **Implementer and Reviewer**
 
 - **Do not remove or rename** `LICENSE`, `NOTICE`, or any upstream attribution — required by Apache 2.0
 - **Do not modify** the Sparkle.framework directory — it's a pre-built binary dependency
-- **Do not modify** the BuildScripts submodule — it's an external dependency
+- **Do not modify** the BuildScripts directory — it's cloned from an external repo (gitignored, not a submodule)
 - **Do not change** the bundle identifier (`com.pilotmoon.scroll-reverser`) without explicit direction — it affects permissions, login items, and user preferences
 - **Private SPI usage is intentional** — `CGEventCopyIOHIDEvent`, `IOHIDEventGetFloatValue`, `IOHIDEventSetFloatValue` are required for core functionality. Always access via runtime `dlsym` resolution, never direct linking
 - **Localization files in `resources/`** — Do not modify existing translations. New strings should be added to English only; translation is a separate concern
@@ -53,7 +53,9 @@ Claude's role in this repo: **Implementer and Reviewer**
 
 - **Status:** `[ACTIVE]`
 - **Deployment target:** macOS 13.5
-- **Current state:** Bug fixes and API modernization applied. Core architecture unchanged from upstream.
+- **Current state:** Bug fixes, API modernization, CI/CD pipeline, and signing infrastructure applied. Core architecture unchanged from upstream.
+- **Signing:** Developer ID Application (Thomas Hudson, JZPZ8PQR46) for releases; ad-hoc for local dev builds
+- **CI:** GitHub Actions workflow (`.github/workflows/release.yml`) handles build, notarization, and release on `v*` tags
 
 ## Linked Documents
 

@@ -21,7 +21,7 @@
 | Tool | Version | Notes |
 |---|---|---|
 | Xcode | Latest supporting macOS 13.5 SDK | Build system, code signing, Interface Builder nibs |
-| BuildScripts | Git submodule | `github.com/pilotmoon/BuildScripts` — version injection, post-build language filtering, Sparkle processing. Must `git submodule update --init` after clone |
+| BuildScripts | Manually cloned | `github.com/pilotmoon/BuildScripts` — version injection, post-build language filtering, Sparkle processing. Gitignored; run `git clone https://github.com/pilotmoon/BuildScripts.git BuildScripts` for local dev. Automatically cloned in CI. |
 
 ## Private / Undocumented APIs
 
@@ -37,7 +37,8 @@ These are undocumented and unsupported. They may be removed or changed in any ma
 
 | Service | Purpose | Notes |
 |---|---|---|
-| softwareupdate.pilotmoon.com | Sparkle appcast feed | Points to upstream author's update server. Not relevant for this fork unless distributed |
+| raw.githubusercontent.com/tomrhudson/Scroll-Reverser | Sparkle appcast feed | `appcast.xml` in repo root, auto-updated by CI on release tags |
+| Apple Notary Service | App notarization | Accessed via `notarytool` in CI. Requires Apple ID + app-specific password (GitHub secrets) |
 
 ## Infrastructure
 
@@ -47,5 +48,5 @@ None. This is a standalone macOS desktop application with no server-side depende
 
 - Check for Xcode SDK compatibility after each macOS release
 - Monitor private SPI availability after each macOS release (check `dlsym` resolution logs)
-- BuildScripts submodule: pin to current commit; update only if build process requires it
+- BuildScripts: re-clone periodically if upstream changes are needed; no version pin (uses latest main)
 - Sparkle.framework: no planned updates unless a security issue is identified

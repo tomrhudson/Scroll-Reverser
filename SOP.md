@@ -28,36 +28,46 @@ Automated testing is impractical — the app requires system-level Accessibility
 - Confirm source detection correctly identifies trackpad vs. mouse
 - Check that momentum scrolling (trackpad fling) continues in the reversed direction
 
-## How to Build for Release
+## How to Build Locally
 
-1. Switch to the **Production** build configuration in Xcode
-2. Ensure the Developer ID code signing identity is configured
-3. Build (Cmd+B)
-4. The post-build scripts in `script/` handle Sparkle framework processing and language filtering
+1. Clone BuildScripts if not already present: `git clone https://github.com/pilotmoon/BuildScripts.git BuildScripts`
+2. Open `ScrollReverser.xcodeproj` in Xcode
+3. Build and run (Cmd+R) — Debug configuration uses ad-hoc signing, no Developer ID needed
+4. The `ScrollReverser-Dev.entitlements` file disables library validation for local dev builds
 
-## How to Publish an Update
+## How to Publish a Release (Automated)
 
-1. Archive the Release build in Xcode (Product > Archive)
-2. Export the archive as a `.app`, then zip it:
-   ```bash
-   cd /path/to/export
-   zip -r "ScrollReverser-vX.Y.Z.zip" "Scroll Reverser.app"
-   ```
-3. Sign the zip with the EdDSA private key:
-   ```bash
-   # Private key is stored securely (not in repo). See /tmp/sparkle_ed25519_private_key.base64
-   # Use Sparkle's sign_update or a CryptoKit-based signing script
-   ```
-4. Create a GitHub Release at `tomrhudson/Scroll-Reverser` with the zip attached
-5. Update `appcast.xml` in the repo with a new `<item>` entry containing:
-   - Version number (`sparkle:version` and `sparkle:shortVersionString`)
-   - Download URL (GitHub Release asset URL)
-   - EdDSA signature (`sparkle:edSignature`)
-   - File length
-6. Commit and push `appcast.xml`
-7. Sparkle will pick up the update on the next check cycle
+Releases are fully automated via GitHub Actions (`.github/workflows/release.yml`). To publish:
 
-**EdDSA signing key**: The private key (`sparkle_ed25519_private_key.base64`) must be stored securely outside the repo. The public key is in `Info.plist` as `SUPublicEDKey`.
+```bash
+git tag -a v1.0.2 -m "Description of release"
+git push origin v1.0.2
+```
+
+The workflow automatically:
+1. Builds the Release configuration with Developer ID signing (Thomas Hudson, JZPZ8PQR46)
+2. Re-signs Sparkle framework with secure timestamps
+3. Submits to Apple notarization and staples the ticket
+4. Signs the zip with the Sparkle EdDSA private key
+5. Creates a GitHub Release with the zip attached
+6. Updates `appcast.xml` and pushes it to main
+
+**Required GitHub Secrets** (already configured):
+- `DEVELOPER_ID_CERTIFICATE_P12` — Base64-encoded Developer ID cert
+- `DEVELOPER_ID_CERTIFICATE_PASSWORD` — P12 export password
+- `APPLE_ID` — Apple ID for notarization
+- `APPLE_ID_PASSWORD` — App-specific password for notarization
+- `APPLE_TEAM_ID` — `JZPZ8PQR46`
+- `SPARKLE_PRIVATE_KEY` — EdDSA private key (also in 1Password as "Scroll Reverser - Sparkle EdDSA Signing Key")
+
+## How to Publish a Release (Manual)
+
+If GitHub Actions is unavailable:
+
+1. Build the Release configuration locally (requires Developer ID cert in Keychain)
+2. Re-sign Sparkle with `--timestamp` flag
+3. Zip the .app, sign with EdDSA key, create GitHub Release, update appcast.xml manually
+4. See the workflow file for the exact steps
 
 ## How to Roll Back
 

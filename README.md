@@ -21,9 +21,9 @@
    git clone <this-repo-url>
    cd Scroll-Reverser
    ```
-2. Initialize the BuildScripts submodule:
+2. Clone the BuildScripts dependency (gitignored, not a submodule):
    ```bash
-   git submodule update --init
+   git clone https://github.com/pilotmoon/BuildScripts.git BuildScripts
    ```
 3. Open `ScrollReverser.xcodeproj` in Xcode
 4. Replace the code signing identity with your own Developer ID certificate in the **Signing & Capabilities** tab of the Scroll Reverser target
@@ -38,7 +38,8 @@ Scroll-Reverser/
 ├── *.h / *.m             # Objective-C source (18 header/implementation pairs)
 ├── ScrollReverser.xcodeproj/  # Xcode project
 ├── Sparkle.framework/    # Embedded auto-update framework
-├── BuildScripts/         # Git submodule — version injection, signing, language filtering
+├── BuildScripts/         # Cloned manually (gitignored) — version injection, signing, language filtering
+├── .github/workflows/    # GitHub Actions release pipeline
 ├── Graphics/             # App icon assets and status bar icons
 ├── resources/            # Localization files (20+ languages)
 ├── script/               # Post-build scripts
@@ -82,13 +83,16 @@ Changes made in this fork from the upstream [pilotmoon/Scroll-Reverser](https://
 - **Dead code removal:** Stripped `@available` guards that are always true given the macOS 13.5 deployment target; removed unused `LSSharedFileListRef` property
 - **Performance:** Removed per-event `refreshPermissions` call from the hot event tap callback
 - **Resilience:** Private SPI functions now resolved via `dlsym` at runtime with graceful fallback
+- **CI/CD:** GitHub Actions workflow for automated builds, notarization, and releases on version tags
+- **Signing:** Configured for Developer ID Application (Thomas Hudson, JZPZ8PQR46) with ad-hoc signing for local dev builds
+- **Updates:** Sparkle feed redirected to this fork's GitHub repo with new EdDSA signing key
 
 ## Known Issues / Limitations
 
 - **Private SPI dependency** — Core functionality relies on undocumented Apple APIs that could break in any macOS release. Runtime `dlsym` resolution provides a safety net but degraded behavior if removed.
 - **NOTICE file trademark restriction** — The name "Scroll Reverser" and the application icon are trademarks of the original author and may not be used by derivative works (except to describe origin).
 - **No automated tests** — The app requires system-level Accessibility and Input Monitoring permissions, making automated testing impractical without manual permission grants.
-- **Sparkle framework** — Embedded directly in the repo rather than managed via SPM/CocoaPods. Update feed URLs point to Pilotmoon's servers.
+- **Sparkle framework** — Embedded directly in the repo rather than managed via SPM/CocoaPods. Update feed points to `raw.githubusercontent.com/tomrhudson/Scroll-Reverser/main/appcast.xml`.
 
 ## License
 
@@ -98,4 +102,4 @@ Original work copyright 2011 Nicholas Moore / Pilotmoon Software.
 
 ---
 
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-12
