@@ -90,6 +90,26 @@ jobs:
           mkdir -p $RUNNER_TEMP/export
           cp -R "$RUNNER_TEMP/build/Release/Scroll Reverser.app" "$RUNNER_TEMP/export/Scroll Reverser.app"
 
+      - name: Re-sign Sparkle framework with timestamps
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP="$RUNNER_TEMP/export/Scroll Reverser.app"
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          IDENTITY="Developer ID Application"
+
+          # Re-sign all Sparkle binaries with secure timestamps and hardened runtime
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" "$SPARKLE/Versions/B/Updater.app"
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" "$SPARKLE/Versions/B/Autoupdate"
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" "$SPARKLE"
+
+          # Re-sign the main app too (must be last, after framework is signed)
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
+
+          # Verify
+          codesign --verify --deep --strict "$APP"
+          echo "Code signing verified successfully"
+
       - name: Create zip
         run: |
           cd $RUNNER_TEMP/export
