@@ -13,5 +13,18 @@
       3. Add a new <item> below with the version, download URL, and EdDSA signature
       4. Commit and push appcast.xml
     -->
+    <item>
+      <title>Version 1.0.1</title>
+      <pubDate>Sun, 12 Apr 2026 00:04:52 +0000</pubDate>
+      <sparkle:version>1.0.1</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.5</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/tomrhudson/Scroll-Reverser/releases/download/v1.0.1/ScrollReverser-1.0.1.zip"
+        length="1698929"
+        type="application/octet-stream"
+        sparkle:edSignature="ohr2iX97aktZT3bqie9YHfAOE0BNsohW6RBx43+YjEfjKDBTM6BRw2N8a/lYqo8qCWqqHhrBkmAnjCTD11khDw=="
+      />
+    </item>
   </channel>
 </rss>
