@@ -2,7 +2,7 @@
 
 **Reverses the direction of scrolling on macOS, with independent settings for trackpads and mice.**
 
-`[ACTIVE]` — Customization Fork
+> **This fork is no longer maintained.** The [final release (v1.0.1)](https://github.com/tomrhudson/Scroll-Reverser/releases/tag/v1.0.1) remains available.
 
 > **This is a fork of [pilotmoon/Scroll-Reverser](https://github.com/pilotmoon/Scroll-Reverser)** by Nicholas Moore / Pilotmoon Software. The original project is licensed under Apache License 2.0. This fork contains bug fixes, deprecated API replacements, and modernization changes that diverge from the upstream codebase.
 
